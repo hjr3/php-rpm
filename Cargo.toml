@@ -1,0 +1,9 @@
+[package]
+name = "php-rpm"
+version = "0.1.0"
+authors = ["Herman J. Radtke III <herman@hermanradtke.com>"]
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.29"

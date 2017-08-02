@@ -18,7 +18,7 @@ The code uses bindgen to dynamically build bindings for PHP 7. Using `cargo buil
 
 ## Usage
 
-Depending on the location of `libphp7.so` you may need to provide `LD_LIBRARY_PATH`. Example: `LD_LIBRARY_PATH="/path/to/lib" cargo run`.
+Depending on the location of `libphp7.so` you may need to provide `LD_LIBRARY_PATH`. The first argument to the program is the name of the PHP file to execute. Example: `PHP_LIB_DIR="/path/to/lib" PHP_INCLUDE_DIR="/path/to/include" LD_LIBRARY_PATH="/path/to/lib" cargo run -- tests/index.php`.
 
 ## Inspiration
 

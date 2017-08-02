@@ -12,13 +12,13 @@ Embed PHP into Rust so that hyper can accept the HTTP request, pass that informa
 
 ## Installation
 
-I currently have PHP compiled in a specific directory `/home/herman/projects/php-src`. You will have to either replicate this directory or modify the code to find it in whatever directory you have it in.
+This package depends on PHP. The default location for includes is in `/usr/include/php`. You can set an environment variable `PHP_INCLUDE_DIR` to override this. The default location for libs is in `/usr/lib`. You can set an environment variable `PHP_LIB_DIR` to override this. The specific library required is `libphp7.so`. This is included if you add embed support to your PHP installation. Some package managers provide a specific package for this. For example, Ubunty Xenial calls it `libphp7.0-embed`.
 
-The code uses bindgen to dynamically build bindings for PHP 7.1. Using `cargo build` should give you a working binary.
+The code uses bindgen to dynamically build bindings for PHP 7. Using `cargo build` should give you a working binary.
 
 ## Usage
 
-Depending on the location of `libphp7.so` you may need to provide `LD_LIBRARY_PATH`. Example: `LD_LIBRARY_PATH="/path/to/lib" cargo run`
+Depending on the location of `libphp7.so` you may need to provide `LD_LIBRARY_PATH`. Example: `LD_LIBRARY_PATH="/path/to/lib" cargo run`.
 
 ## Inspiration
 

@@ -4,6 +4,10 @@ use std::env;
 use std::path::PathBuf;
 
 fn main () {
+
+    println!("cargo:rerun-if-env-changed=PHP_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=PHP_INCLUDE_DIR");
+
     let default_lib_dir = PathBuf::from("/usr/lib");
     let default_include_dir = PathBuf::from("/usr/include/php");
 
@@ -40,6 +44,7 @@ fn main () {
         .hide_type("FP_SUBNORMAL")
         .hide_type("FP_NORMAL")
         .hide_type("max_align_t")
+        .derive_default(true)
         .generate()
         .expect("Unable to generate bindings");
 

@@ -1,40 +1,44 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
+extern crate futures;
+extern crate hyper;
+#[macro_use]
+extern crate log;
 
-use std::default::Default;
-use std::fs::File;
-use std::mem::transmute;
-use std::os::unix::io::AsRawFd;
-use std::os::raw::c_char;
-use std::os::raw::c_int;
-use std::ptr;
-use std::ffi::CString;
+use hyper::server::{Http, Request, Response, Service};
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+pub mod sapi;
+
+struct Server {
+    document_root: String,
+}
+
+impl Server {
+    pub fn new(document_root: String) -> Server {
+        Server {
+            document_root: document_root,
+        }
+    }
+}
+
+impl Service for Server {
+    type Request = Request;
+    type Response = Response;
+    type Error = hyper::Error;
+    type Future = futures::future::FutureResult<Self::Response, Self::Error>;
+
+    fn call(&self, request: Request) -> Self::Future {
+        let response = sapi::execute(request, &self.document_root);
+        futures::future::ok(response)
+    }
+}
 
 fn main() {
-    let argc = 0 as c_int;
-    let mut argv: Vec<*mut c_char> = vec![ptr::null_mut()];
-
+    let addr = "127.0.0.1:3000".parse().unwrap();
     let filename = std::env::args().nth(1).unwrap();
-    let file = File::open(filename.clone()).unwrap();
-    let fd = file.as_raw_fd();
 
-    let filename = CString::new(filename).unwrap();
-    let mut handle = _zend_file_handle__bindgen_ty_1::default();
-    unsafe {
-        *handle.fd.as_mut() = fd;
-        let _script = zend_file_handle {
-            handle: handle,
-            filename: filename.as_ptr(),
-            opened_path: ptr::null_mut(),
-            type_: zend_stream_type::ZEND_HANDLE_FD,
-            free_filename: 0,
-        };
-        let script: *mut zend_file_handle = transmute(Box::new(_script));
-        php_embed_init(argc, argv.as_mut_ptr());
-        php_execute_script(script);
-        php_embed_shutdown();
-    }
+    let server = Http::new().bind(&addr, move || Ok(Server::new(filename.to_string()))).unwrap();
+    println!("Listening on {}", addr);
+
+    sapi::bootstrap();
+    server.run().unwrap();
+    sapi::teardown();
 }

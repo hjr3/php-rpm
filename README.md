@@ -20,6 +20,8 @@ The code uses bindgen to dynamically build bindings for PHP 7. Using `cargo buil
 
 Depending on the location of `libphp7.so` you may need to provide `LD_LIBRARY_PATH`. The first argument to the program is the name of the PHP file to execute. Example: `PHP_LIB_DIR="/path/to/lib" PHP_INCLUDE_DIR="/path/to/include" LD_LIBRARY_PATH="/path/to/lib" cargo run -- tests/index.php`.
 
+The `tests/index.php` is the entry point of the PHP program. A hyper server listens for new requests and dispatches each request to the PHP engine, which executes `tests/index.php`. The response headers and body are sent back through hyper and then to the client.
+
 ## Inspiration
 
 I thought of this idea while working on weldr and thinking about how weldr would be used at my day job (which uses PHP).

@@ -7,6 +7,4 @@ authors = ["Herman J. Radtke III <herman@hermanradtke.com>"]
 log = "0.3.8"
 hyper = "0.11"
 futures = "0.1"
-
-[build-dependencies]
-bindgen = "0.29"
+php-sys = { version = "0.1", path = "php-sys" }

@@ -1,0 +1,9 @@
+[package]
+name = "php-sys"
+version = "0.1.0"
+authors = ["Herman J. Radtke III <herman@hermanradtke.com>"]
+links = "php7"
+build = "build.rs"
+
+[build-dependencies]
+bindgen = "0.29"

@@ -28,7 +28,7 @@ fn main () {
         );
     }
 
-    println!("cargo:rustc-link-lib=php7");
+    println!("cargo:rustc-link-lib=static=php7");
     println!("cargo:rustc-link-search=native={}", lib_dir.to_string_lossy());
 
     let includes = ["/", "/TSRM", "/Zend", "/main"].iter().map(|d| {

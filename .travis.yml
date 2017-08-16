@@ -1,0 +1,21 @@
+language: rust
+dist: trusty
+sudo: required
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+matrix:
+  allow_failures:
+    - rust: nightly
+
+install:
+ - sudo add-apt-repository -y ppa:ondrej/php
+ - sudo apt-get update
+ - sudo apt-get install -y libphp7.0-embed php-dev
+
+script:
+ - PHP_LIB_DIR=/usr/lib PHP_INCLUDE_DIR=/usr/include/php/20160303 cargo build --verbose
+ - PHP_LIB_DIR=/usr/lib PHP_INCLUDE_DIR=/usr/include/php/20160303 cargo test

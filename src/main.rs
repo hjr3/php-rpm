@@ -2,7 +2,8 @@ extern crate futures;
 extern crate hyper;
 #[macro_use]
 extern crate log;
-extern crate php_sys as ffi;
+extern crate env_logger;
+extern crate php_sys as php;
 
 use std::fs;
 use std::net::SocketAddr;
@@ -60,6 +61,7 @@ fn main() {
     let abs_doc_root = fs::canonicalize(&doc_root).unwrap();
     let index = "index.php"; // TODO make this configurable
 
+    env_logger::init().expect("Failed to start logger");
     let server = Http::new().bind(&addr, move || Ok(Server::new(abs_doc_root.clone(), index.to_string(), addr.clone()))).unwrap();
     println!("Listening on {}", addr);
 

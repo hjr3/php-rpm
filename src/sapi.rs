@@ -1,7 +1,3 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-
 use std::default::Default;
 use std::ffi::{CString, CStr};
 use std::fs::File;
@@ -16,7 +12,7 @@ use std::str;
 use hyper::header::{Headers, ContentLength, ContentType, Cookie};
 use hyper::{self, Response};
 
-use ffi;
+use php;
 
 struct ServerContext {
     buffer: Vec<u8>,
@@ -62,35 +58,36 @@ pub fn execute(method: hyper::Method, uri: hyper::Uri, http_version: hyper::Http
     let handle_filename = CString::new(filename).unwrap();
 
     let (headers, body) = unsafe  {
-        let mut handle = ffi::_zend_file_handle__bindgen_ty_1::default();
+        let mut handle = php::_zend_file_handle__bindgen_ty_1::default();
         *handle.fd.as_mut() = fd;
-        let mut script = Box::new(ffi::zend_file_handle {
+        let mut script = Box::new(php::zend_file_handle {
             handle: handle,
             filename: handle_filename.as_ptr(),
             opened_path: ptr::null_mut(),
-            type_: ffi::zend_stream_type::ZEND_HANDLE_FD,
+            type_: php::zend_stream_type::ZEND_HANDLE_FD,
             free_filename: 0,
         });
-        let script_ptr: *mut ffi::zend_file_handle = &mut *script;
+        let script_ptr: *mut php::zend_file_handle = &mut *script;
 
-        ffi::sapi_globals.sapi_headers.http_response_code = 200;
+        php::sapi_globals.sapi_headers.http_response_code = 200;
         let mut context = Box::new(ServerContext::new(method, uri, http_version, headers, chunk.to_owned().into_boxed_slice(), doc_root, filename.to_string(), addr.clone()));
         let context_ptr: *mut ServerContext = &mut *context;
-        ffi::sapi_globals.server_context = context_ptr as *mut c_void;
-        ffi::php_request_startup();
+        php::sapi_globals.server_context = context_ptr as *mut c_void;
+        php::php_request_startup();
 
-        ffi::php_execute_script(script_ptr);
+        php::php_execute_script(script_ptr);
 
-        let context = ffi::sapi_globals.server_context as *mut ServerContext;
+        let context = php::sapi_globals.server_context as *mut ServerContext;
         let buffer: &Vec<u8> = &(*context).buffer;
         let headers = (*context).response.headers().clone();
 
         // TODO move this into the request shutdown block
         // note: strangely enough, php_request_shutdown will not call our request shutdown callback
-        drop(CString::from_raw(ffi::sapi_globals.request_info.cookie_data));
-        ffi::sapi_globals.server_context = ptr::null_mut();
+        drop(CString::from_raw(php::sapi_globals.request_info.cookie_data));
+        php::sapi_globals.request_info.cookie_data = ptr::null_mut();
+        php::sapi_globals.server_context = ptr::null_mut();
 
-        ffi::php_request_shutdown(ptr::null_mut());
+        php::php_request_shutdown(ptr::null_mut());
 
         (headers, buffer)
     };
@@ -103,19 +100,31 @@ pub fn execute(method: hyper::Method, uri: hyper::Uri, http_version: hyper::Http
 
 pub fn teardown() {
     unsafe {
-        ffi::php_module_shutdown();
-        ffi::sapi_shutdown();
+        php::php_module_shutdown();
+        php::sapi_shutdown();
+
+        drop(CString::from_raw(php::sapi_globals.request_info.path_translated));
+        drop(CString::from_raw(php::sapi_module.name));
+        drop(CString::from_raw(php::sapi_module.pretty_name));
+
+        // PHP is a bit funny in that we create an `php::sapi_module_struct`, create a pointer to that
+        // and then pass it to some core PHP functions. When it is passed, those core functions
+        // dereference the pointer and store the memory in a global. As we used `Box::into_raw` to
+        // create the pointer, we need to use `Box::from_raw` to free the underlying memory. In order
+        // to use `Box::from_raw`, we must first get a reference to the global.
+        // TODO check that this is the right way to do this
+        drop(Box::from_raw(&mut php::sapi_module));
     }
 }
 
 unsafe fn php_startup() {
 
-    let mut module = Box::new(ffi::sapi_module_struct::default());
+    let mut module = Box::new(php::sapi_module_struct::default());
     let name = CString::new("php-rpm").unwrap();
     let pretty_name = CString::new("PHP Rust Process Manager").unwrap();
 
-    module.name = name.as_ptr() as *mut c_char;
-    module.pretty_name = pretty_name.as_ptr() as *mut c_char;
+    module.name = name.into_raw();
+    module.pretty_name = pretty_name.into_raw();
     module.startup = Some(sapi_server_startup);
     module.shutdown = Some(sapi_server_shutdown);
     module.ub_write = Some(sapi_server_ub_write);
@@ -127,32 +136,34 @@ unsafe fn php_startup() {
     module.register_server_variables = Some(sapi_server_register_variables);
     module.log_message = Some(sapi_server_log_message);
 
-    let module_ptr: *mut ffi::sapi_module_struct = &mut *module;
+    let module_ptr = Box::into_raw(module);
 
     // TODO error check
-    ffi::sapi_startup(module_ptr);
+    // this function assigns the module pointer to the `php::sapi_module` global variable
+    php::sapi_startup(module_ptr);
 
-    let mut request_info = ffi::sapi_request_info::default();
+    let mut request_info = php::sapi_request_info::default();
     let request_method = CString::new("GET").unwrap();
     let path_translated = CString::new("/home/herman/projects/php-rpm/tests/index.php").unwrap();
     let content_type = CString::new("text/html").unwrap();
     request_info.request_method = request_method.as_ptr();
     request_info.content_length = 0;
-    request_info.path_translated = path_translated.as_ptr() as *mut c_char;
+    request_info.path_translated = path_translated.into_raw();
     request_info.content_type = content_type.as_ptr();
-    ffi::sapi_globals.request_info = request_info;
+    php::sapi_globals.request_info = request_info;
 
-    ffi::php_module_startup(module_ptr, ptr::null_mut(), 0);
+    // this function also assigns the module pointer to the `php::sapi_module` global variable
+    php::php_module_startup(module_ptr, ptr::null_mut(), 0);
 }
 
-unsafe extern "C" fn sapi_server_startup(_module: *mut ffi::sapi_module_struct) -> c_int {
+unsafe extern "C" fn sapi_server_startup(_module: *mut php::sapi_module_struct) -> c_int {
     trace!("sapi_server_startup");
-    ffi::ZEND_RESULT_CODE::SUCCESS as c_int
+    php::ZEND_RESULT_CODE::SUCCESS as c_int
 }
 
-unsafe extern "C" fn sapi_server_shutdown(_module: *mut ffi::sapi_module_struct) -> c_int {
+unsafe extern "C" fn sapi_server_shutdown(_module: *mut php::sapi_module_struct) -> c_int {
     trace!("sapi_server_shutdown");
-    ffi::ZEND_RESULT_CODE::SUCCESS as c_int
+    php::ZEND_RESULT_CODE::SUCCESS as c_int
 }
 
 unsafe extern "C" fn sapi_server_ub_write(s: *const c_char, s_len: usize) -> usize {
@@ -160,7 +171,7 @@ unsafe extern "C" fn sapi_server_ub_write(s: *const c_char, s_len: usize) -> usi
     let s_: *const c_uchar = s as *const c_uchar;
     let rs = slice::from_raw_parts(s_, s_len);
     //io::stdout().write(&rs).unwrap();
-    let context = ffi::sapi_globals.server_context as *mut ServerContext;
+    let context = php::sapi_globals.server_context as *mut ServerContext;
     (*context).buffer.extend_from_slice(&rs);
 
     s_len
@@ -168,11 +179,11 @@ unsafe extern "C" fn sapi_server_ub_write(s: *const c_char, s_len: usize) -> usi
 
 unsafe extern "C" fn sapi_server_flush(_server_context: *mut c_void) {
     trace!("sapi_server_flush");
-    if ffi::sapi_globals.headers_sent == 1 {
+    if php::sapi_globals.headers_sent == 1 {
         return;
     }
 
-    ffi::sapi_send_headers();
+    php::sapi_send_headers();
 }
 
 //unsafe extern "C" fn php_error(type_: c_int, error_msg: *const c_char) {
@@ -192,21 +203,21 @@ fn set_response_status(response: &mut Response, _request_http_version: hyper::Ht
     }
 }
 
-unsafe extern "C" fn sapi_server_send_headers(sapi_headers: *mut ffi::sapi_headers_struct) -> c_int {
+unsafe extern "C" fn sapi_server_send_headers(sapi_headers: *mut php::sapi_headers_struct) -> c_int {
     trace!("sapi_server_send_headers");
-    let context = ffi::sapi_globals.server_context as *mut ServerContext;
+    let context = php::sapi_globals.server_context as *mut ServerContext;
 
-    let shs: &ffi::sapi_headers_struct = sapi_headers.as_ref().unwrap();
+    let shs: &php::sapi_headers_struct = sapi_headers.as_ref().unwrap();
 
     set_response_status(&mut (*context).response, (*context).http_version, shs.http_status_line, shs.http_response_code);
 
     let mut headers = shs.headers;
-    let mut zle = ffi::zend_llist_element::default();
-    let mut pos: ffi::zend_llist_position = &mut zle;
-    let mut h = ffi::zend_llist_get_first_ex(&mut headers, &mut pos);
+    let mut zle = php::zend_llist_element::default();
+    let mut pos: php::zend_llist_position = &mut zle;
+    let mut h = php::zend_llist_get_first_ex(&mut headers, &mut pos);
 
     while !h.is_null() {
-        let header = h as *const ffi::sapi_header_struct;
+        let header = h as *const php::sapi_header_struct;
 
         if (*header).header_len > 0 {
             let v: *const c_uchar = (*header).header as *const c_uchar;
@@ -219,21 +230,21 @@ unsafe extern "C" fn sapi_server_send_headers(sapi_headers: *mut ffi::sapi_heade
             let value = String::from_utf8_unchecked(value[2..].to_vec());
             (*context).response.headers_mut().set_raw(name, value);
         }
-        h = ffi::zend_llist_get_next_ex(&mut headers, &mut pos);
+        h = php::zend_llist_get_next_ex(&mut headers, &mut pos);
     }
 
 
     // used so flush can try and send headers prior to output
-    ffi::sapi_globals.headers_sent = 1;
+    php::sapi_globals.headers_sent = 1;
 
     // bindgen treats this as a `c_uint` type but this function requires a c_int
-    ffi::SAPI_HEADER_SENT_SUCCESSFULLY as c_int
+    php::SAPI_HEADER_SENT_SUCCESSFULLY as c_int
 }
 
 unsafe extern "C" fn sapi_server_read_post(buf: *mut c_char, bytes: usize) -> usize {
     trace!("read_post");
 
-    let context = ffi::sapi_globals.server_context as *mut ServerContext;
+    let context = php::sapi_globals.server_context as *mut ServerContext;
     let body = &(*context).body;
     let copied = ::std::cmp::min(bytes, body.len());
     if copied > 0 {
@@ -260,11 +271,15 @@ fn read_cookies(context: &ServerContext) -> *mut c_char {
 
 unsafe extern "C" fn sapi_server_read_cookies() -> *mut c_char {
     trace!("read_cookies");
-    let context = ffi::sapi_globals.server_context as *mut ServerContext;
+    let context = php::sapi_globals.server_context as *mut ServerContext;
     read_cookies(&(*context))
 }
 
-fn register_variable(key: &str, value: &str, track_vars_array: *mut ffi::zval) {
+fn register_variable(key: &str, value: &str, track_vars_array: *mut php::zval) {
+    // TODO answer the below question:
+    // for ffi how bad is it to do the cast below? i am essentially saying that PHP will never
+    // actually mutate these variables. otherwise, i have to loop back through this hash table and
+    // manually free all of the underlying data
     let key = CString::new(key).unwrap();
     let key_ptr = key.as_ptr() as *mut c_char;
     let value_len = value.len();
@@ -272,11 +287,11 @@ fn register_variable(key: &str, value: &str, track_vars_array: *mut ffi::zval) {
     let value_ptr = value.as_ptr() as *mut c_char;
 
     unsafe {
-        ffi::php_register_variable_safe(key_ptr, value_ptr, value_len, track_vars_array);
+        php::php_register_variable_safe(key_ptr, value_ptr, value_len, track_vars_array);
     }
 }
 
-fn register_variables(context: &ServerContext, track_vars_array: *mut ffi::zval) {
+fn register_variables(context: &ServerContext, track_vars_array: *mut php::zval) {
 
     register_variable("PHP_SELF", &context.script, track_vars_array);
     // TODO script name should include path info
@@ -319,10 +334,10 @@ fn register_variables(context: &ServerContext, track_vars_array: *mut ffi::zval)
     // PATH_INFO
 }
 
-unsafe extern "C" fn sapi_server_register_variables(track_vars_array: *mut ffi::zval) {
+unsafe extern "C" fn sapi_server_register_variables(track_vars_array: *mut php::zval) {
     trace!("sapi_server_register_varibles");
 
-    let context = ffi::sapi_globals.server_context as *mut ServerContext;
+    let context = php::sapi_globals.server_context as *mut ServerContext;
     register_variables(&(*context), track_vars_array);
 }
 

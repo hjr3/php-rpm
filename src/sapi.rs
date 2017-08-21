@@ -83,7 +83,9 @@ pub fn execute(method: hyper::Method, uri: hyper::Uri, http_version: hyper::Http
 
         // TODO move this into the request shutdown block
         // note: strangely enough, php_request_shutdown will not call our request shutdown callback
-        drop(CString::from_raw(php::sapi_globals.request_info.cookie_data));
+        if !php::sapi_globals.request_info.cookie_data.is_null() {
+            drop(CString::from_raw(php::sapi_globals.request_info.cookie_data));
+        }
         php::sapi_globals.request_info.cookie_data = ptr::null_mut();
         php::sapi_globals.server_context = ptr::null_mut();
 

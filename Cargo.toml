@@ -6,6 +6,8 @@ authors = ["Herman J. Radtke III <herman@hermanradtke.com>"]
 [dependencies]
 log = "0.3"
 env_logger = "0.3"
+clap = "2.26"
+yansi = "0.3"
 hyper = "0.11"
 futures = "0.1"
 php-sys = { version = "0.1", path = "php-sys" }

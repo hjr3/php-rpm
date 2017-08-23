@@ -10,11 +10,11 @@ The standard way to run PHP is to use nginx + php_fpm. Not only is this a pain t
 
 ## Solution
 
-Embed PHP into Rust so that hyper can accept the HTTP request, pass that information off to a PHP script and then have hyper return the HTTP response.
+Embed PHP into Rust so that hyper can accept the HTTP request, spawn a thread in which we pass that information off to a PHP script and then have hyper return the HTTP response.
 
 ## Installation
 
-This package depends on PHP. The default location for the PHP includes is in `/usr/include/php`. You can set an environment variable `PHP_INCLUDE_DIR` to override this. The default location for `libphp7` is in `/usr/lib`. You can set an environment variable `PHP_LIB_DIR` to override this. For details on how to install or compile PHP, see [php-sys/README.md](php-sys/README.md).
+This package depends on PHP. The default location for the PHP includes is in `/usr/include/php`. You can set an environment variable `PHP_INCLUDE_DIR` to override this. The default location for `libphp7` is in `/usr/lib`. You can set an environment variable `PHP_LIB_DIR` to override this. For details on how to install or compile PHP, see [php-sys/README.md](php-sys/README.md). Please note that in order to safely spawn threads with PHP, `--enable-maintainer-zts` must be used.
 
 The code uses bindgen to dynamically build bindings for PHP 7. If you want to compile against a static `libphp7`, then specify `PHP_LINK_STATIC=1`. Using `cargo build` should give you a working binary.
 

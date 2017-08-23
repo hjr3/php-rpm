@@ -17,12 +17,6 @@ In order to compile php-sys, we need development headers and the libphp7 library
 
 Some basic instructions on how to install PHP so you can embed it into Rust.
 
-Here are the dependencies needed (in apt-get form):
-
-```bash
-$ apt-get install git make gcc libxml2-dev autoconf
-```
-
 #### Mac OS X
 
 I had to use brew to install bison. I believe autoconf and other tools were either already installed or provided by Mac OS X. Brew installed some modified version of libiconv which confused PHP. I also had some problems, so I stopped building xml related stuff. To build I had to do:
@@ -39,10 +33,16 @@ Note: I embed a static library on Mac OS X. If you want to do embed PHP with a s
 
 #### Linux
 
+Here are the dependencies needed (in apt-get form):
+
+```bash
+$ apt-get install git make gcc libxml2-dev autoconf bison valgrind clang re2c
+```
+
 ```
 $ ./genfiles
 $ ./buildconf --force
-$ PATH="/usr/local/opt/bison/bin:$PATH" ./configure --enable-debug --enable-embed=shared
-$ PATH="/usr/local/opt/bison/bin:$PATH" make
-$ PATH="/usr/local/opt/bison/bin:$PATH" make test
+$ ./configure --enable-debug --enable-embed=shared
+$ make
+$ make test
 ```

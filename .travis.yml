@@ -14,12 +14,12 @@ matrix:
 cache:
   cargo: true
   directories:
-    - $HOME/php-src
+    - $HOME/php-7.1.10
 
 install:
- - sudo sh ./.travis/install-php.sh
+ - sudo sh ./.travis/install-php.sh php-7.1.10
 
 before_script:
- - export PHP_LIB_DIR=~/php-src/libs
- - export PHP_INCLUDE_DIR=~/php-src
- - export LD_LIBRARY_PATH=~/php-src/libs
+ - export PHP_LIB_DIR=~/php-7.1.10/libs
+ - export PHP_INCLUDE_DIR=~/php-7.1.10
+ - export LD_LIBRARY_PATH=~/php-7.1.10/libs
